@@ -15,6 +15,9 @@ public class NameServer {
     private int predecessor = -1;
     private int successor   = -1;
 
+    private String successorIP = null;
+    private int    successorPort = -1;
+
     public NameServer(int id, int port, String bootstrapIP, int bootstrapPort) {
         this.id = id;
         this.port = port;
@@ -33,12 +36,21 @@ public class NameServer {
             System.out.print(">> ");
             String command = sc.nextLine().trim();
             if (command.equalsIgnoreCase("exit")) {
+                if (successor != -1 && successor != id) {
+                    for (var e : keyValueStore.entrySet()) {
+                        remoteInsertToSuccessor(e.getKey(), e.getValue());
+                    }
+                    keyValueStore.clear();
+                }
+                
                 sendCommandToBootstrap("exit " + id);
                 System.out.println("Request sent to Bootstrap Server to exit.");
                 break;
+
             } else if (command.equalsIgnoreCase("enter")) {
                 sendCommandToBootstrap("enter " + id + " " + port);
                 System.out.println("Request sent to Bootstrap Server to enter.");
+
             } else {
                 System.out.println("Invalid command. Use 'enter' or 'exit'");
             }
@@ -86,6 +98,9 @@ public class NameServer {
                                           predecessor + ", " + id + "]");
                         System.out.println("Predecessor: " + predecessor +
                                            "  Successor: " + successor);
+
+                        requestKeysFromSuccessor(); // pull keys from successor
+
                         break;
 
                     case "setsucc":              // bootstrap to succ changed
@@ -98,6 +113,20 @@ public class NameServer {
                         System.out.println("Updated predecessor: " + predecessor);
                         break;
 
+                    case "transfer":
+                        int fromKey = Integer.parseInt(p[1]);
+                        int toKey   = Integer.parseInt(p[2]);
+                        int count   = Integer.parseInt(p[3]);
+                        
+                        for (int i = 0; i < count; i++) {
+                            String kv = in.readLine();
+                            String[] kvp = kv.split(" ", 2);
+                            keyValueStore.put(Integer.parseInt(kvp[0]), kvp[1]);
+                        }
+
+                        out.println("ack");
+                        break;
+                    
                     case "lookup":
                         int key = Integer.parseInt(p[1]);
                         if (keyValueStore.containsKey(key))
@@ -122,6 +151,44 @@ public class NameServer {
             } catch (IOException e) {
                 System.out.println("Client Handler Error: " + e.getMessage());
             }
+        }
+    }
+
+    //helper to ask successor to send keys
+    private void requestKeysFromSuccessor() {
+        if (successor == id) {
+            return;                    // only node in ring
+        }
+
+        try (Socket s = new Socket(successorIP, successorPort);
+             BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+             PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
+
+            out.println("transfer " + predecessor + " " + id);   // request
+            String first = in.readLine();                        // count line from succ
+
+            if (first == null || !first.startsWith("count")) 
+                return;
+            
+            int n = Integer.parseInt(first.split(" ")[1]);
+
+            for (int i = 0; i < n; i++) {
+                String kv = in.readLine();
+                String[] kvp = kv.split(" ", 2);
+
+                keyValueStore.put(Integer.parseInt(kvp[0]), kvp[1]);
+            }
+        } catch (IOException ignore) {
+            //Ignore
+        }
+    }
+
+    private void remoteInsertToSuccessor(int k, String v) {
+        try (Socket s = new Socket(successorIP, successorPort);
+             PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
+            out.println("insert " + k + " " + v);
+        } catch (IOException ignore) {
+            //ignore
         }
     }
 

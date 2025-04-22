@@ -106,7 +106,7 @@ public class BootstrapServer {
             keyValueStore.put(key, value);
             System.out.println("Inserted at Bootstrap Server");
         } else {
-            remoteCommand(res, "inset " + key + " " + value);
+            remoteCommand(res, "insert " + key + " " + value);
             System.out.println("Inserted at Name Server " + res);
 
         }
