@@ -93,6 +93,8 @@ public class NameServer {
                     case "neighbors":            //from bootstrap on join
                         predecessor = Integer.parseInt(p[1]);
                         successor   = Integer.parseInt(p[4]);
+                        successorIP  = p[5];
+                        successorPort= Integer.parseInt(p[6]); 
 
                         System.out.println("Successful entry. Key range: [" +
                                           predecessor + ", " + id + "]");
@@ -105,6 +107,9 @@ public class NameServer {
 
                     case "setsucc":              // bootstrap to succ changed
                         successor = Integer.parseInt(p[1]);
+                        successorIP   = socket.getInetAddress().getHostAddress();
+                        successorPort = Integer.parseInt(p[2]);      // bootstrap passes port in p[2]
+
                         System.out.println("Updated successor: " + successor);
                         break;
 
@@ -117,7 +122,7 @@ public class NameServer {
                         int fromKey = Integer.parseInt(p[1]);
                         int toKey   = Integer.parseInt(p[2]);
                         int count   = Integer.parseInt(p[3]);
-                        
+
                         for (int i = 0; i < count; i++) {
                             String kv = in.readLine();
                             String[] kvp = kv.split(" ", 2);
@@ -126,6 +131,24 @@ public class NameServer {
 
                         out.println("ack");
                         break;
+                    
+                    case "getkeys":        // requester: predID myID
+                        int from = Integer.parseInt(p[1]);
+                        int to   = Integer.parseInt(p[2]);
+                    
+                        // collect all keys in [from, to]
+                        List<Integer> list = new ArrayList<>();
+                        keyValueStore.forEach((k,v) -> {
+                            if (inRange(from, to, k)) list.add(k);
+                        });
+                    
+                        out.println("count " + list.size());
+                    
+                        for (int k : list) {
+                            out.println(k + " " + keyValueStore.get(k));
+                            keyValueStore.remove(k);           // remove from my store
+                        }
+                        return;
                     
                     case "lookup":
                         int key = Integer.parseInt(p[1]);
@@ -154,6 +177,12 @@ public class NameServer {
         }
     }
 
+    private boolean inRange(int pred, int curr, int key) {
+        if (pred < curr) return key > pred && key <= curr;
+        // wrap‑around
+        return key > pred || key <= curr;
+    }
+
     //helper to ask successor to send keys
     private void requestKeysFromSuccessor() {
         if (successor == id) {
@@ -164,7 +193,7 @@ public class NameServer {
              BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
              PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
 
-            out.println("transfer " + predecessor + " " + id);   // request
+            out.println("getkeys " + predecessor + " " + id);   // request
             String first = in.readLine();                        // count line from succ
 
             if (first == null || !first.startsWith("count")) 

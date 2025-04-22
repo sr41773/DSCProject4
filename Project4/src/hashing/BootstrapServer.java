@@ -281,7 +281,8 @@ public class BootstrapServer {
             try (Socket s = new Socket(t.ip, t.port);
                      PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
                 // Send the message to the target server
-                out.println((isSucc ? "setsucc" : "setpred") + " " + newNeighbor);
+                out.println((isSucc ? "setsucc" : "setpred") + " " + newNeighbor + " " + 
+                    serverRing.get(newNeighbor).port);
 
             } catch (IOException ignore) {
                 //ignore
