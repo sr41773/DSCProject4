@@ -36,7 +36,7 @@ public class NameServer {
             System.out.print(">> ");
             String command = sc.nextLine().trim();
             if (command.equalsIgnoreCase("exit")) {
-                if (successor != -1 && successor != id) {
+                /**if (successor != -1 && successor != id) {
                     for (var e : keyValueStore.entrySet()) {
                         remoteInsertToSuccessor(e.getKey(), e.getValue());
                     }
@@ -45,16 +45,64 @@ public class NameServer {
                 
                 sendCommandToBootstrap("exit " + id);
                 System.out.println("Request sent to Bootstrap Server to exit.");
-                break;
+                break;*/
+                gracefulExit();
+                return;
 
             } else if (command.equalsIgnoreCase("enter")) {
-                sendCommandToBootstrap("enter " + id + " " + port);
-                System.out.println("Request sent to Bootstrap Server to enter.");
+                //sendCommandToBootstrap("enter " + id + " " + port);
+                //System.out.println("Request sent to Bootstrap Server to enter.");
+                performEntry();
+                break;
 
             } else {
                 System.out.println("Invalid command. Use 'enter' or 'exit'");
             }
         }
+    }
+
+    //helper to perform entry into the ring
+    private void performEntry() {
+        try (Socket s = new Socket(bootstrapIP, bootstrapPort);
+             BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+             PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
+    
+            out.println("enter " + id + " " + port);
+    
+            String line = in.readLine();                  // read from bootstrap
+            if (line == null || !line.startsWith("neighbors")) {
+                System.out.println("Bootstrap did not reply — entry failed");
+                return;
+            }
+            String[] p = line.trim().split(" ");
+    
+            predecessor   = Integer.parseInt(p[1]);
+            successor     = Integer.parseInt(p[4]);
+            successorIP   = p[5];
+            successorPort = Integer.parseInt(p[6]);
+    
+            System.out.println("Successful entry. Key range: (" + predecessor + ", " + id + "]");
+            System.out.println("Predecessor: " + predecessor + "  Successor: "   + successor);
+    
+            requestKeysFromSuccessor();            // pull KV pairs
+
+        } catch (IOException e) {
+            System.out.println("Entry error: " + e.getMessage());
+        }
+    }
+    
+    // moves keys to successor and informs bootstrap
+    private void gracefulExit() {
+        if (successor != -1 && successor != id) {
+            for (var e : keyValueStore.entrySet())
+                remoteInsertToSuccessor(e.getKey(), e.getValue());
+            keyValueStore.clear();
+        }
+        try (Socket s = new Socket(bootstrapIP, bootstrapPort);
+             PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
+            out.println("exit " + id);
+        } catch (IOException ignore) { }
+        System.out.println("Request sent to Bootstrap Server to exit.");
     }
 
     //helper to listern to network messages
