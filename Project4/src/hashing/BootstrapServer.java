@@ -258,6 +258,28 @@ public class BootstrapServer {
 
                     System.out.println("Server " + leavingId + " has exited the ring.");
                     System.out.println("Current ring: " + serverRing.keySet());
+                
+                } else if ("getkeys".equalsIgnoreCase(command)) {
+                    int from = Integer.parseInt(parts[1]);   // predecessor ID
+                    int to   = Integer.parseInt(parts[2]);   // requester ID
+
+                    List<Integer> send = new ArrayList<>();
+                        keyValueStore.forEach((k,v) -> {         // collect (from, to] keys
+                            if (inRange(from, to, k)) send.add(k);
+                    });
+
+                    out.println("count " + send.size());
+                    for (int k : send) {
+                        out.println(k + " " + keyValueStore.get(k));
+                        keyValueStore.remove(k);             // migrate to new server
+                    }
+
+                } else if ("insert".equalsIgnoreCase(command)) {
+                    int key   = Integer.parseInt(parts[1]);
+                    
+                    String val= parts[2];
+                    keyValueStore.put(key, val);
+                    out.println("ok");
 
                 } else {
                     System.out.println("Unknown message: " + input);
@@ -281,7 +303,11 @@ public class BootstrapServer {
             try (Socket s = new Socket(t.ip, t.port);
                      PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
                 // Send the message to the target server
-                out.println((isSucc ? "setsucc" : "setpred") + " " + newNeighbor + " " + 
+                //out.println((isSucc ? "setsucc" : "setpred") + " " + newNeighbor + " " + 
+                //    serverRing.get(newNeighbor).port);
+                out.println((isSucc ? "setsucc" : "setpred") + " " +
+                    newNeighbor + " " +
+                    serverRing.get(newNeighbor).ip + " " +
                     serverRing.get(newNeighbor).port);
 
             } catch (IOException ignore) {

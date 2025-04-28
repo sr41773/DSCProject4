@@ -156,8 +156,10 @@ public class NameServer {
 
                     case "setsucc":              // bootstrap to succ changed
                         successor = Integer.parseInt(p[1]);
-                        successorIP   = socket.getInetAddress().getHostAddress();
-                        successorPort = Integer.parseInt(p[2]);      // bootstrap passes port in p[2]
+                        //successorIP   = socket.getInetAddress().getHostAddress();
+                        successorIP  = p[2];
+                        //successorPort = Integer.parseInt(p[2]);      // bootstrap passes port in p[2]
+                        successorPort= Integer.parseInt(p[3]);
 
                         System.out.println("Updated successor: " + successor);
                         break;
