@@ -53,7 +53,8 @@ public class NameServer {
                 //sendCommandToBootstrap("enter " + id + " " + port);
                 //System.out.println("Request sent to Bootstrap Server to enter.");
                 performEntry();
-                break;
+                //break;
+                continue;
 
             } else {
                 System.out.println("Invalid command. Use 'enter' or 'exit'");
